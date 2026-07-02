@@ -1,15 +1,15 @@
-# **----------------------------------------------------OBJETIVO DO PROJETO-----------------------------------------------**
+#### **----------------------------------------------------OBJETIVO DO PROJETO--------------------------------**
 
 Este projeto tem como finalidade otimizar um sistema fictício de banco de dados de um setor da Assistência Social. Ele foi inspirado pelo meu estágio, onde atuei na área de dados, porém por N motivos, não consegui implementá-lo totalmente. 
 
 Importante salientar que nenhum dado é real e que não tem relação a nenhum município.
 
-## **-------------------------------------------------FERRAMENTAS UTILIZADAS---------------------------------------------**
+#### **-------------------------------------------------FERRAMENTAS UTILIZADAS-------------------------------**
 
 -- Python (Pandas e Numpy);
 -- Excel;
 
-## **-----------------------------------------------CRIAÇÃO DE DADOS FICTÍCIOS-------------------------------------------**
+#### **-----------------------------------------------CRIAÇÃO DE DADOS FICTÍCIOS-----------------------------**
 
 Para gerar os dados, eu primeiramente montei um escopo de como eu gostaria que as tabelas ficassem. Dessa forma, surgiu algumas restrições que seriam necessárias para que os dados, mesmo que aleatórios e fictícios, tivessem algum sentido e se relacionassem corretamente entre as tabelas.
 
