@@ -1,3 +1,6 @@
 *.xlsx
 *.xls
-~
+~$*.xlsx
+~$*.xls
+.env
+--pycache__/

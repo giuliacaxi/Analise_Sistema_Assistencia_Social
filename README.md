@@ -14,8 +14,18 @@ Importante salientar que nenhum dado é real e que não tem relação a nenhum m
 #### **-------------------------------------------------FERRAMENTAS UTILIZADAS---------------------------------------------**
 >>>>>>> Stashed changes
 
--- Python (Pandas e Numpy);
+-- Python
+    - Bibliotecas Usadas:
+        1. Pandas;
+        2. Numpy;
+        3. sqlalchemy;
+        4. os;
+        5. dotenv;
+        6. customtkinter;
+        7. Faker;
+        8. mysql.connector;
 -- Excel;
+-- MySQL.
 
 <<<<<<< Updated upstream
 #### **-----------------------------------------------CRIAÇÃO DE DADOS FICTÍCIOS-----------------------------**
@@ -60,4 +70,32 @@ Em motoristas (54 linhas):
 Em visitas_técnico (7800 linhas):
 
 1. Ele segue a mesma lógica da tabela de atendimentos.
+
+#### **-----------------------------------------------IMPORTAÇÃO DOS DADOS EXCEL -> MySQL-------------------------------------------**
+
+Para importar os dados do excel para o MySQL, por questões de segurança, fiz utilidade das bibliotecas "os" e "dotenv" do Python, para que minhas informações como nome de usuário e senha, não fosse escrito no código.
+
+Coloquei na raiz do projeto o arquivo .env com essas informações, para que o código só as carregasse sem mostrar nada. Também adicionei o arquivo no .gitignore.
+
+Após realizar a leitura dos dados do excel, percebi que para o sistema ficar mais completo, eu esqueci de adicionar duas tabelas que seriam cruciais:
+
+1. Coordenador;
+2. Outros Funcionários.
+
+Elas são importantes pois gostaria que o sistema possuísse níveis de acesso diferentes, para que houvesse uma melhor consistência. Não seria certo que o recepcionista tivesse o mesmo acesso que os técnicos (Assistentes Social e Psicólogos).
+
+Então, até o momento, há três níveis de acesso diferentes que podem mudar mais para frente.
+
+1. Coodernador;
+2. Técnico;
+3. Funcionário;
+
+O nível funcionário remete a tabela "Funcionários" que foi criada, que contém os seguintes cargos:
+
+1. Administrador;
+2. Analista de Dados;
+3. Administrador de Banco de Dados;
+4. Recepcionista;
+
+Por senso comum, é claro que o DBA teria acesso absoluto do sistema, ao contrário dos demais. No momento, fiz com que no script do aplicativo uma aba especial fosse aberta para ele, mas talvez seria melhor criar outro nível de acesso, para melhor padronização.
 
