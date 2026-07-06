@@ -99,3 +99,12 @@ O nível funcionário remete a tabela "Funcionários" que foi criada, que conté
 
 Por senso comum, é claro que o DBA teria acesso absoluto do sistema, ao contrário dos demais. No momento, fiz com que no script do aplicativo uma aba especial fosse aberta para ele, mas talvez seria melhor criar outro nível de acesso, para melhor padronização.
 
+
+#### **-----------------------------------------------SISTEMA/APLICATIVO DE INTERFACE VISUAL-------------------------------------------**
+
+Imaginando que para manter uma padronização melhor dos dados inseridos, minha próxima etapa e construir um sistema de interface visual que linke com o banco de dados, para que novos dados sejam inseridos através do sistema e seja armazenado diretamente no banco de dados local.
+
+Para isso, é preciso montar a estrutura desse aplicativo, onde há diferentes login's que darão acesso a diferentes páginas. 
+
+Um administrador não vai ter a mesma interface que o coordenador, por exemplo.
+
