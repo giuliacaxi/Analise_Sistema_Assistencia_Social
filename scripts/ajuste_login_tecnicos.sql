@@ -1,0 +1,3 @@
+SET SQL_SAFE_UPDATES = 0;
+UPDATE casos SET Id_caso = REPLACE(UPPER(Id_caso), 'CAS', '');
+SET SQL_SAFE_UPDATES = 1;

@@ -27,6 +27,14 @@ df_motoristas = pd.read_excel(arquivo_excel, sheet_name="Motoristas")
 df_visitas_tecnico = pd.read_excel(arquivo_excel, sheet_name="Visitas_Tecnico")
 df_alocacao_motorista = pd.read_excel(arquivo_excel, sheet_name="Alocacao_Motorista")
 
+df_casos.columns = df_casos.columns.str.lower()
+if 'id_caso' in df_casos.columns:
+    df_casos = df_casos.drop(columns=['id_caso'])
+
+# 4. Enviar os dados de volta para a tabela vazia do MySQL
+df_casos.to_sql('casos', con=engine, if_exists='append', index=False)
+
+print("Dados restaurados com sucesso com IDs numéricos e sequenciais!")
 
 # Ajustando maiúsculas e minúsculas para não dar KeyError
 df_tecnicos.columns = df_tecnicos.columns.str.lower()

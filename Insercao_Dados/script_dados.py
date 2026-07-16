@@ -63,7 +63,7 @@ print(f"Inserção de dados de usuários concluída! ({len(df_usuarios)} linhas)
 # =========================================================
 
 N_TECNICOS = 80
-N_TECNICOS_ATIVOS = 10  # <- Requisito 1: só 10 técnicos ativos (não demitidos) em 2026
+N_TECNICOS_ATIVOS = 10 
 
 Id_tecnico = [f"TEC{i:02d}" for i in range(1, N_TECNICOS + 1)]
 nome_tecnico = [fake.name() for _ in range(N_TECNICOS)]

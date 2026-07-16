@@ -108,3 +108,38 @@ Para isso, é preciso montar a estrutura desse aplicativo, onde há diferentes l
 
 Um administrador não vai ter a mesma interface que o coordenador, por exemplo.
 
+
+## Funcionalidades Implementadas até o momento:
+
+### 2. Controle de Acesso Baseado em Papéis (RBAC)
+* O sistema identifica o cargo do usuário no momento do login e constrói o menu lateral dinamicamente.
+* **Níveis de Acesso mapeados:**
+  * Administrador de Banco de Dados (DBA)
+  * Administrador
+  * Coordenador
+  * Assistente Social (Técnico)
+  * Psicólogo (Técnico)
+  * Analista de Dados
+  * Recepcionista
+
+### 3. Automação e Gestão de Credenciais
+* **Geração Automática de Login:** Ao cadastrar um novo funcionário, o sistema gera o login em tempo real baseado no primeiro nome e na extensão do cargo (ex: `gabriel.dba`, `paula.social`).
+* **IDs Visuais Dinâmicos:** O banco de dados armazena apenas IDs numéricos puros para máxima performance (`AUTO_INCREMENT`), mas o sistema renderiza prefixos visuais baseados no cargo para o usuário final (ex: `DBA01`, `TEC12`, `ADM05`).
+
+### 4. Validação e Tratamento de Dados
+* **Máscara de Data Dinâmica (`dd/mm/yyyy`):** Campos de data na interface inserem as barras `/` automaticamente enquanto o usuário digita e bloqueiam letras.
+* **Conversão de Datas:** Conversão automática do padrão brasileiro visual (`DD/MM/AAAA`) para o padrão universal do banco de dados (`YYYY-MM-DD`) utilizando a biblioteca nativa `datetime`.
+* **Tratamento de Dados Nulos no SQL:** Estruturação correta para aceitar datas nulas (`NULL`) em funcionários ativos, contornando limitações de `NO_ZERO_DATE` do modo estrito do MySQL.
+* **Prevenção de Duplicidade:** Tratamento de erros (`Error Code: 1062`) para evitar logins repetidos no banco.
+
+---
+
+##  Arquitetura do Código (`app.py`)
+O código está organizado em blocos lógicos para facilitar a manutenção e escalabilidade:
+1. **Configurações e Imports**
+2. **Método Inicializador (Setup de Janela)**
+3. **Funções de Banco de Dados:** Conexões e Queries.
+4. **Fluxo de Autenticação:** Telas e validação de login.
+5. **Estrutura Base do Painel:** Construção da Sidebar e Dashboard inicial.
+6. **Subtelas (Interfaces):** Formulários de cadastro e visões específicas por cargo.
+7. **Lógica de Negócios e Ações:** Processamento de inputs, cálculos e formatações (Bastidores).
