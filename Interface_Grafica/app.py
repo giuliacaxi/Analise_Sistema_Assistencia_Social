@@ -11,10 +11,7 @@ load_dotenv()
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-# ---------------------------------------------------------------------------
-# Paleta fixa usada na sidebar / cabeçalho / tela inicial para dar uma cara
-# mais limpa e consistente ao sistema
-# ---------------------------------------------------------------------------
+
 COR_SIDEBAR = "#26418f"
 COR_SIDEBAR_HOVER = "#3a5aad"
 COR_SIDEBAR_LINHA = "#4a63a8"
@@ -22,6 +19,8 @@ COR_FUNDO = "#fdf8ee"
 COR_TEXTO_TITULO = "#1a1a1a"
 COR_LINHA_DIVISORIA = "#dcd7c8"
 COR_ACCENT = "#26418f"
+
+
 
 
 class AppSistemaSocial(ctk.CTk):
@@ -53,11 +52,13 @@ class AppSistemaSocial(ctk.CTk):
             messagebox.showerror("Erro de Conexão", f"Erro ao conectar ao banco de dados: {err}")
             return None
 
-    def executar_query(self, query, valores=None, fetch=False, commit=False):
+    def executar_query(self, query, valores=None, fetch=False, commit=False, retornar_id=False):
         """
         Helper central para não repetir abrir/fechar conexão em cada tela.
-        fetch=True  -> retorna lista de dicts (SELECT)
-        commit=True -> executa INSERT/UPDATE/DELETE e comita
+        fetch=True       -> retorna lista de dicts (SELECT)
+        commit=True      -> executa INSERT/UPDATE/DELETE e comita
+        retornar_id=True -> junto com commit=True, retorna o id auto-incrementado
+                             gerado pelo INSERT (cursor.lastrowid) em vez do rowcount
         Retorna (sucesso: bool, dados_ou_erro)
         """
         con = self.conectar_banco_dados()
@@ -72,6 +73,8 @@ class AppSistemaSocial(ctk.CTk):
                 return True, resultado
             if commit:
                 con.commit()
+                if retornar_id:
+                    return True, cursor.lastrowid
                 return True, cursor.rowcount
             return True, None
         except mysql.connector.Error as err:
@@ -222,7 +225,7 @@ class AppSistemaSocial(ctk.CTk):
         self.tela_inicio()
 
     def preparar_subtela(self, titulo):
-
+    
         self.limpar_area_conteudo()
         self.lbl_titulo_pagina.configure(text=titulo)
         self.lbl_saudacao.pack_forget()
@@ -256,7 +259,8 @@ class AppSistemaSocial(ctk.CTk):
         elif nivel == "Administrador":
             self.criar_botao_menu("Cadastrar Usuário", self.tela_admin_cadastrar_usuario)
             self.criar_botao_menu("Cadastrar Técnico", self.tela_admin_cadastro_tecnico)
-            self.criar_botao_menu("Atribuir / Transferir Caso", lambda: self.mudar_subtela("Atribuir / Transferir Caso"))
+            self.criar_botao_menu("Atribuir Caso", lambda: self.mudar_subtela("Atribuir Caso"))
+            self.criar_botao_menu("Transferir Caso", lambda: self.mudar_subtela("Transferir Caso"))
             self.criar_botao_menu("Visualizar Motoristas", lambda: self.mudar_subtela("Visualizar Motoristas"))
 
         elif nivel == "Analista de Dados":
@@ -286,7 +290,7 @@ class AppSistemaSocial(ctk.CTk):
             widget.destroy()
 
     # -----------------------------------------------------------------
-    # Dispatcher central de subtelas
+    # Dispatcher central de subtelas 
     # -----------------------------------------------------------------
     def mudar_subtela(self, nome_tela):
         mapa_telas = {
@@ -302,7 +306,8 @@ class AppSistemaSocial(ctk.CTk):
             "Monitorar Visitas": self.tela_monitorar_visitas,
             "Relatórios Gerenciais": self.tela_relatorios_gerenciais,
             # Administrador
-            "Atribuir / Transferir Caso": self.tela_atribuir_transferir_caso,
+            "Atribuir Caso": self.tela_atribuir_caso,
+            "Transferir Caso": self.tela_transferir_caso,
             "Visualizar Motoristas": self.tela_visualizar_motoristas,
             # Analista de Dados
             "Dashboard Analítico": self.tela_dashboard_analitico,
@@ -325,7 +330,7 @@ class AppSistemaSocial(ctk.CTk):
                          text_color="gray").pack(pady=40)
 
     # -----------------------------------------------------------------
-    # Componentes reutilizáveis para a tela de "Início"
+    # Componentes reutilizáveis (tabela simples e cards de dashboard)
     # -----------------------------------------------------------------
     def criar_tabela(self, parent, colunas, dados, largura_colunas=None):
         """
@@ -639,41 +644,252 @@ class AppSistemaSocial(ctk.CTk):
             else:
                 messagebox.showerror("Erro", f"Falha ao salvar no banco: {resultado}")
 
-    def tela_atribuir_transferir_caso(self):
-        frame = ctk.CTkScrollableFrame(self.area_conteudo, label_text="Atribuir / Transferir Caso")
+    def tela_atribuir_caso(self):
+        frame = ctk.CTkScrollableFrame(self.area_conteudo, label_text="Atribuir Caso")
         frame.pack(fill="both", expand=True, pady=10)
 
-        ctk.CTkLabel(frame, text="Caso:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
-        ent_caso = ctk.CTkEntry(frame, placeholder_text="ID ou nome do caso", width=400)
-        ent_caso.pack(pady=(0, 10), anchor="w", padx=20)
+        ctk.CTkLabel(frame, text="Origem:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
+        menu_origem = ctk.CTkOptionMenu(
+            frame,
+            values=["Hospital", "CRAS", "Disque 100", "MP", "Denúncia Anônima", "Secretaria de Educação", "Conselho Tutelar"],
+            width=200, dynamic_resizing=False)
+        menu_origem.pack(pady=(0, 10), anchor="w", padx=20)
+        menu_origem.set("Selecione...")
 
-        ctk.CTkLabel(frame, text="Técnico de destino:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
-        sucesso, tecnicos = self.executar_query("SELECT nome FROM tecnicos", fetch=True)
-        nomes_tecnicos = [t["nome"] for t in tecnicos] if sucesso and tecnicos else ["Nenhum técnico encontrado"]
+        ctk.CTkLabel(frame, text="Data de Abertura:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
+        comando_validar = self.register(self.validar_entrada_data)
+        ent_data_abertura = ctk.CTkEntry(frame, placeholder_text="dd/mm/aaaa", width=150, validate="key")
+        ent_data_abertura.configure(validatecommand=(comando_validar, '%d', '%P', '%W'))
+        ent_data_abertura.pack(pady=(0, 10), anchor='w', padx=20)
+
+        # Por estar sendo inserido agora, é um caso novo e o status inicial é sempre "Ativo".
+        ctk.CTkLabel(frame, text="Status:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
+        ent_status = ctk.CTkEntry(frame, width=150)
+        ent_status.insert(0, "Ativo")
+        ent_status.configure(state="disabled")
+        ent_status.pack(pady=(0, 10), anchor="w", padx=20)
+
+        ctk.CTkLabel(frame, text="Técnico responsável:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
+        sucesso, tecnicos = self.executar_query("SELECT id, nome FROM tecnicos", fetch=True)
+        # A tabela `casos` guarda id_tecnico (int), então precisamos do mapa nome -> id.
+        mapa_tecnicos = {t["nome"]: t["id"] for t in tecnicos} if sucesso and tecnicos else {}
+        nomes_tecnicos = list(mapa_tecnicos.keys()) or ["Nenhum técnico encontrado"]
         menu_tecnico = ctk.CTkOptionMenu(frame, values=nomes_tecnicos, width=300)
         menu_tecnico.pack(pady=(0, 10), anchor="w", padx=20)
 
-        ctk.CTkLabel(frame, text="Motivo da transferência:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
-        txt_motivo = ctk.CTkTextbox(frame, width=400, height=100)
-        txt_motivo.pack(pady=(0, 10), anchor="w", padx=20)
+        # --- Usuário(s) vinculados ao caso (tabela caso_acompanhamento: id_caso + id_usuario) ---
+        ctk.CTkLabel(frame, text="Usuário(s) vinculado(s) ao caso:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
+
+        frame_busca = ctk.CTkFrame(frame, fg_color="transparent")
+        frame_busca.pack(fill="x", padx=20, pady=(0, 5))
+        ent_busca_usuario = ctk.CTkEntry(frame_busca, placeholder_text="Buscar usuário por nome...", width=300,
+                                          border_color=COR_LINHA_DIVISORIA)
+        ent_busca_usuario.pack(side="left", padx=(0, 10))
+
+        frame_resultados_busca = ctk.CTkFrame(frame, fg_color="transparent")
+        frame_resultados_busca.pack(fill="x", padx=20, pady=(0, 10))
+
+        ctk.CTkLabel(frame, text="Usuários adicionados ao caso:", font=("Arial", 11, "bold"),
+                     text_color="gray").pack(anchor="w", padx=20, pady=(0, 2))
+        frame_selecionados = ctk.CTkFrame(frame, fg_color="transparent")
+        frame_selecionados.pack(fill="x", padx=20, pady=(0, 10))
+
+        usuarios_selecionados = []  # lista de dicts {"id":..., "nome":...}
+
+        def atualizar_selecionados():
+            for widget in frame_selecionados.winfo_children():
+                widget.destroy()
+            if not usuarios_selecionados:
+                ctk.CTkLabel(frame_selecionados, text="Nenhum usuário adicionado ainda.",
+                             text_color="gray").pack(anchor="w")
+                return
+            for usuario in usuarios_selecionados:
+                linha = ctk.CTkFrame(frame_selecionados, fg_color="transparent")
+                linha.pack(fill="x", pady=2)
+                ctk.CTkLabel(linha, text=usuario["nome"], text_color=COR_TEXTO_TITULO).pack(side="left")
+
+                def remover(u=usuario):
+                    usuarios_selecionados.remove(u)
+                    atualizar_selecionados()
+
+                ctk.CTkButton(linha, text="✕", width=24, height=24, fg_color="transparent",
+                              text_color="#cf4444", hover_color=("#f0d0d0", "#3a2020"),
+                              command=remover).pack(side="right")
+
+        def buscar_usuario():
+            for widget in frame_resultados_busca.winfo_children():
+                widget.destroy()
+            termo = ent_busca_usuario.get().strip()
+            if not termo:
+                return
+            sucesso, resultado = self.executar_query(
+                "SELECT id, nome FROM usuarios WHERE nome LIKE %s LIMIT 10", (f"%{termo}%",), fetch=True
+            )
+            if not sucesso:
+                self.mostrar_erro_tabela(frame_resultados_busca, resultado)
+                return
+            if not resultado:
+                ctk.CTkLabel(frame_resultados_busca, text="Nenhum usuário encontrado.", text_color="gray").pack(anchor="w")
+                return
+            for usuario in resultado:
+                linha = ctk.CTkFrame(frame_resultados_busca, fg_color="transparent")
+                linha.pack(fill="x", pady=2)
+                ctk.CTkLabel(linha, text=usuario["nome"], text_color=COR_TEXTO_TITULO).pack(side="left")
+
+                def adicionar(u=usuario):
+                    if u["id"] not in [x["id"] for x in usuarios_selecionados]:
+                        usuarios_selecionados.append(u)
+                        atualizar_selecionados()
+
+                ctk.CTkButton(linha, text="+ Adicionar", width=90, fg_color=COR_ACCENT,
+                              hover_color=COR_SIDEBAR_HOVER, command=adicionar).pack(side="right")
+
+        ctk.CTkButton(frame_busca, text="Buscar", fg_color=COR_ACCENT, hover_color=COR_SIDEBAR_HOVER,
+                      command=buscar_usuario).pack(side="left")
+        ent_busca_usuario.bind("<Return>", lambda event: buscar_usuario())
+        atualizar_selecionados()
+
+        def salvar_atribuicao():
+            origem = menu_origem.get()
+            dt_abertura = ent_data_abertura.get().strip()
+            status = ent_status.get()
+            tecnico_nome = menu_tecnico.get()
+
+            if origem == "Selecione...":
+                messagebox.showwarning("Erro", "Selecione a origem do caso.")
+                return
+            if not dt_abertura:
+                messagebox.showwarning("Erro", "Informe a data de abertura.")
+                return
+            if tecnico_nome not in mapa_tecnicos:
+                messagebox.showwarning("Erro", "Selecione um técnico válido.")
+                return
+            if not usuarios_selecionados:
+                messagebox.showwarning("Erro", "Adicione ao menos um usuário ao caso.")
+                return
+
+            id_tecnico = mapa_tecnicos[tecnico_nome]
+
+            # 1) Cria o caso e pega o id gerado (auto incremento)
+            query_caso = """INSERT INTO casos (origem, dt_abertura, status, id_tecnico)
+                             VALUES (%s, %s, %s, %s)"""
+            sucesso, id_caso = self.executar_query(
+                query_caso, (origem, dt_abertura, status, id_tecnico), commit=True, retornar_id=True
+            )
+            if not sucesso:
+                messagebox.showerror("Erro", f"Falha ao criar o caso: {id_caso}")
+                return
+
+            # 2) Linka cada usuário selecionado ao caso recém-criado (caso_acompanhamento)
+            falhas = []
+            for usuario in usuarios_selecionados:
+                ok, resultado = self.executar_query(
+                    "INSERT INTO caso_acompanhamento (id_caso, id_usuario) VALUES (%s, %s)",
+                    (id_caso, usuario["id"]), commit=True
+                )
+                if not ok:
+                    falhas.append(usuario["nome"])
+
+            self.registrar_atividade(f"Atribuiu o caso #{id_caso} (origem: {origem}) ao técnico {tecnico_nome}")
+
+            if falhas:
+                messagebox.showwarning(
+                    "Atenção",
+                    f"Caso #{id_caso} criado e atribuído a {tecnico_nome}, mas não foi possível "
+                    f"vincular: {', '.join(falhas)}."
+                )
+            else:
+                messagebox.showinfo("Sucesso", f"Caso #{id_caso} criado e atribuído a {tecnico_nome}.")
+
+            menu_origem.set("Selecione...")
+            ent_data_abertura.delete(0, "end")
+            usuarios_selecionados.clear()
+            atualizar_selecionados()
+
+        ctk.CTkButton(frame, text="Atribuir Caso", fg_color=COR_ACCENT, hover_color=COR_SIDEBAR_HOVER,
+                      command=salvar_atribuicao).pack(pady=20, anchor="w", padx=20)
+
+    def tela_transferir_caso(self):
+        frame = ctk.CTkScrollableFrame(self.area_conteudo, label_text="Transferir Caso")
+        frame.pack(fill="both", expand=True, pady=10)
+
+        ctk.CTkLabel(frame, text="N° do Caso:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
+        ent_id_caso = ctk.CTkEntry(frame, placeholder_text="ID do caso", width=200, border_color=COR_LINHA_DIVISORIA)
+        ent_id_caso.pack(pady=(0, 5), anchor="w", padx=20)
+
+        lbl_info_caso = ctk.CTkLabel(frame, text="", text_color="gray", justify="left", wraplength=500)
+        lbl_info_caso.pack(anchor="w", padx=20, pady=(0, 10))
+
+        def buscar_caso():
+            id_caso = ent_id_caso.get().strip()
+            if not id_caso:
+                return
+            sucesso, dados = self.executar_query(
+                "SELECT c.id, c.origem, c.status, t.nome AS tecnico_atual "
+                "FROM casos c LEFT JOIN tecnicos t ON t.id = c.id_tecnico WHERE c.id = %s",
+                (id_caso,), fetch=True
+            )
+            if not sucesso or not dados:
+                lbl_info_caso.configure(text="Caso não encontrado.", text_color="#cf4444")
+                return
+            caso = dados[0]
+            lbl_info_caso.configure(
+                text=f"Origem: {caso['origem']} | Status: {caso['status']} | Técnico atual: {caso['tecnico_atual']}",
+                text_color=COR_TEXTO_TITULO
+            )
+
+        ctk.CTkButton(frame, text="Buscar Caso", fg_color=COR_ACCENT, hover_color=COR_SIDEBAR_HOVER,
+                      command=buscar_caso).pack(anchor="w", padx=20, pady=(0, 15))
+
+        ctk.CTkLabel(frame, text="Técnico de destino:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
+        sucesso, tecnicos = self.executar_query("SELECT id, nome FROM tecnicos", fetch=True)
+        mapa_tecnicos = {t["nome"]: t["id"] for t in tecnicos} if sucesso and tecnicos else {}
+        nomes_tecnicos = list(mapa_tecnicos.keys()) or ["Nenhum técnico encontrado"]
+        menu_tecnico = ctk.CTkOptionMenu(frame, values=nomes_tecnicos, width=300)
+        menu_tecnico.pack(pady=(0, 10), anchor="w", padx=20)
+
+        ctk.CTkLabel(frame, text="Data da transferência:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
+        comando_validar = self.register(self.validar_entrada_data)
+        ent_data_transferencia = ctk.CTkEntry(frame, placeholder_text="dd/mm/aaaa", width=150, validate="key")
+        ent_data_transferencia.configure(validatecommand=(comando_validar, '%d', '%P', '%W'))
+        ent_data_transferencia.pack(pady=(0, 10), anchor='w', padx=20)
 
         def salvar_transferencia():
-            caso = ent_caso.get().strip()
-            tecnico_destino = menu_tecnico.get()
-            motivo = txt_motivo.get("1.0", "end").strip()
-            if not caso:
-                messagebox.showwarning("Erro", "Informe o caso a ser transferido.")
+            id_caso = ent_id_caso.get().strip()
+            tecnico_nome = menu_tecnico.get()
+            dt_transferencia = ent_data_transferencia.get().strip()
+
+            if not id_caso:
+                messagebox.showwarning("Erro", "Informe o número do caso.")
                 return
-            query = "UPDATE casos SET tecnico_responsavel = %s, motivo_transferencia = %s WHERE id = %s OR nome = %s"
-            sucesso, resultado = self.executar_query(query, (tecnico_destino, motivo, caso, caso), commit=True)
+            if tecnico_nome not in mapa_tecnicos:
+                messagebox.showwarning("Erro", "Selecione um técnico válido.")
+                return
+
+            # Busca o técnico atual do caso, para registrar como id_tecnico_anterior
+            sucesso, dados = self.executar_query("SELECT id_tecnico FROM casos WHERE id = %s", (id_caso,), fetch=True)
+            if not sucesso or not dados:
+                messagebox.showerror("Erro", "Caso não encontrado.")
+                return
+
+            id_tecnico_anterior = dados[0]["id_tecnico"]
+            id_tecnico_novo = mapa_tecnicos[tecnico_nome]
+
+            query = """UPDATE casos SET id_tecnico_anterior = %s, id_tecnico = %s, dt_transferencia = %s
+                       WHERE id = %s"""
+            sucesso, resultado = self.executar_query(
+                query, (id_tecnico_anterior, id_tecnico_novo, dt_transferencia, id_caso), commit=True
+            )
             if sucesso:
-                messagebox.showinfo("Sucesso", f"Caso atribuído/transferido para {tecnico_destino}.")
-                ent_caso.delete(0, "end")
-                txt_motivo.delete("1.0", "end")
+                self.registrar_atividade(f"Transferiu o caso #{id_caso} para {tecnico_nome}")
+                messagebox.showinfo("Sucesso", f"Caso #{id_caso} transferido para {tecnico_nome}.")
+                ent_id_caso.delete(0, "end")
+                ent_data_transferencia.delete(0, "end")
+                lbl_info_caso.configure(text="")
             else:
                 messagebox.showerror("Erro", f"Falha ao transferir: {resultado}")
 
-        ctk.CTkButton(frame, text="Confirmar Transferência", fg_color="green", hover_color="darkgreen",
+        ctk.CTkButton(frame, text="Confirmar Transferência", fg_color=COR_ACCENT, hover_color=COR_SIDEBAR_HOVER,
                       command=salvar_transferencia).pack(pady=20, anchor="w", padx=20)
 
     def tela_visualizar_motoristas(self):
@@ -904,16 +1120,22 @@ class AppSistemaSocial(ctk.CTk):
         def buscar(termo):
             for widget in frame_resultado.winfo_children():
                 widget.destroy()
-            query = "SELECT nome_usuario, status, data_abertura, ultima_atualizacao FROM casos WHERE tecnico_responsavel = %s"
-            valores = [self.usuario_logado]
+            query = """SELECT c.id AS n_caso, GROUP_CONCAT(u.nome SEPARATOR ', ') AS usuarios,
+                              c.origem, c.status, c.dt_abertura
+                       FROM casos c
+                       LEFT JOIN caso_acompanhamento ca ON ca.id_caso = c.id
+                       LEFT JOIN usuarios u ON u.id = ca.id_usuario
+                       WHERE c.id_tecnico = %s"""
+            valores = [self.id_usuario_logado]
             if termo:
-                query += " AND nome_usuario LIKE %s"
+                query += " AND u.nome LIKE %s"
                 valores.append(f"%{termo}%")
+            query += " GROUP BY c.id ORDER BY c.id DESC"
             sucesso, dados = self.executar_query(query, tuple(valores), fetch=True)
             if not sucesso:
                 self.mostrar_erro_tabela(frame_resultado, dados)
                 return
-            self.criar_tabela(frame_resultado, ["nome_usuario", "status", "data_abertura", "ultima_atualizacao"], dados)
+            self.criar_tabela(frame_resultado, ["n_caso", "usuarios", "origem", "status", "dt_abertura"], dados)
 
         self.criar_barra_filtro(frame, "Buscar por nome do usuário...", buscar)
         frame_resultado = ctk.CTkFrame(frame, fg_color="transparent")
@@ -926,10 +1148,19 @@ class AppSistemaSocial(ctk.CTk):
 
         ctk.CTkLabel(frame, text="Caso relacionado:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
         sucesso, casos = self.executar_query(
-            "SELECT nome_usuario FROM casos WHERE tecnico_responsavel = %s", (self.usuario_logado,), fetch=True
+            """SELECT c.id AS n_caso, GROUP_CONCAT(u.nome SEPARATOR ', ') AS usuarios
+               FROM casos c
+               LEFT JOIN caso_acompanhamento ca ON ca.id_caso = c.id
+               LEFT JOIN usuarios u ON u.id = ca.id_usuario
+               WHERE c.id_tecnico = %s
+               GROUP BY c.id ORDER BY c.id DESC""",
+            (self.id_usuario_logado,), fetch=True
         )
-        nomes_casos = [c["nome_usuario"] for c in casos] if sucesso and casos else ["Nenhum caso encontrado"]
-        menu_caso = ctk.CTkOptionMenu(frame, values=nomes_casos, width=350)
+        # Mapeia o rótulo exibido no menu -> id do caso, já que o INSERT precisa do id_caso
+        mapa_casos = {f"Caso #{c['n_caso']} - {c['usuarios'] or 'sem usuário vinculado'}": c["n_caso"]
+                      for c in casos} if sucesso and casos else {}
+        opcoes_caso = list(mapa_casos.keys()) or ["Nenhum caso encontrado"]
+        menu_caso = ctk.CTkOptionMenu(frame, values=opcoes_caso, width=400)
         menu_caso.pack(pady=(0, 10), anchor="w", padx=20)
 
         ctk.CTkLabel(frame, text="Data do atendimento:", font=("Arial", 12, "bold")).pack(pady=(10, 2), anchor="w", padx=20)
@@ -943,23 +1174,27 @@ class AppSistemaSocial(ctk.CTk):
         txt_relato.pack(pady=(0, 10), anchor="w", padx=20)
 
         def salvar_relatorio():
-            caso = menu_caso.get()
+            id_caso = mapa_casos.get(menu_caso.get())
             data = ent_data.get().strip()
             relato = txt_relato.get("1.0", "end").strip()
+            if id_caso is None:
+                messagebox.showwarning("Erro", "Selecione um caso válido.")
+                return
             if not relato:
                 messagebox.showwarning("Erro", "O relato não pode estar vazio.")
                 return
-            query = """INSERT INTO relatorios_evolucao (nome_usuario, tecnico, data_atendimento, relato)
+            query = """INSERT INTO relatorios_evolucao (id_caso, tecnico, data_atendimento, relato)
                        VALUES (%s, %s, %s, %s)"""
-            sucesso, resultado = self.executar_query(query, (caso, self.usuario_logado, data, relato), commit=True)
+            sucesso, resultado = self.executar_query(query, (id_caso, self.usuario_logado, data, relato), commit=True)
             if sucesso:
+                self.registrar_atividade(f"Registrou evolução no caso #{id_caso}")
                 messagebox.showinfo("Sucesso", "Relatório de evolução salvo com sucesso.")
                 txt_relato.delete("1.0", "end")
                 ent_data.delete(0, "end")
             else:
                 messagebox.showerror("Erro", f"Falha ao salvar relatório: {resultado}")
 
-        ctk.CTkButton(frame, text="Salvar Relatório", fg_color="green", hover_color="darkgreen",
+        ctk.CTkButton(frame, text="Salvar Relatório", fg_color=COR_ACCENT, hover_color=COR_SIDEBAR_HOVER,
                       command=salvar_relatorio).pack(pady=20, anchor="w", padx=20)
 
     def tela_agendar_visitas(self):
@@ -1046,16 +1281,22 @@ class AppSistemaSocial(ctk.CTk):
         def buscar(termo):
             for widget in frame_resultado.winfo_children():
                 widget.destroy()
-            query = "SELECT nome_usuario, tecnico_responsavel, status, ultima_atualizacao FROM casos"
+            query = """SELECT c.id AS n_caso, t.nome AS tecnico, GROUP_CONCAT(u.nome SEPARATOR ', ') AS usuarios,
+                              c.status, c.dt_abertura
+                       FROM casos c
+                       LEFT JOIN tecnicos t ON t.id = c.id_tecnico
+                       LEFT JOIN caso_acompanhamento ca ON ca.id_caso = c.id
+                       LEFT JOIN usuarios u ON u.id = ca.id_usuario"""
             valores = ()
             if termo:
-                query += " WHERE tecnico_responsavel LIKE %s OR nome_usuario LIKE %s"
+                query += " WHERE t.nome LIKE %s OR u.nome LIKE %s"
                 valores = (f"%{termo}%", f"%{termo}%")
+            query += " GROUP BY c.id ORDER BY c.id DESC"
             sucesso, dados = self.executar_query(query, valores, fetch=True)
             if not sucesso:
                 self.mostrar_erro_tabela(frame_resultado, dados)
                 return
-            self.criar_tabela(frame_resultado, ["nome_usuario", "tecnico_responsavel", "status", "ultima_atualizacao"], dados)
+            self.criar_tabela(frame_resultado, ["n_caso", "tecnico", "usuarios", "status", "dt_abertura"], dados)
 
         self.criar_barra_filtro(frame, "Buscar por técnico ou usuário...", buscar)
         frame_resultado = ctk.CTkFrame(frame, fg_color="transparent")
@@ -1114,13 +1355,15 @@ class AppSistemaSocial(ctk.CTk):
 
         ctk.CTkLabel(frame, text="Casos por Técnico:", font=("Arial", 14, "bold")).pack(anchor="w", pady=(10, 5))
         sucesso, dados = self.executar_query(
-            "SELECT tecnico_responsavel, COUNT(*) as total_casos FROM casos GROUP BY tecnico_responsavel",
+            """SELECT t.nome AS tecnico, COUNT(*) as total_casos
+               FROM casos c JOIN tecnicos t ON t.id = c.id_tecnico
+               GROUP BY t.nome ORDER BY total_casos DESC""",
             fetch=True
         )
         if not sucesso:
             self.mostrar_erro_tabela(frame, dados)
             return
-        self.criar_tabela(frame, ["tecnico_responsavel", "total_casos"], dados)
+        self.criar_tabela(frame, ["tecnico", "total_casos"], dados)
 
     # ===================================================================
     # SUBTELAS - ANALISTA DE DADOS
@@ -1315,7 +1558,7 @@ class AppSistemaSocial(ctk.CTk):
         return col_esquerda, col_direita
 
     def construir_lista_query(self, parent, colunas, query, valores=None):
-        """Helper genérico: roda uma query e desenha o resultado como tabela limpa."""
+    
         sucesso, dados = self.executar_query(query, valores, fetch=True)
         if not sucesso:
             self.mostrar_erro_tabela(parent, dados)
@@ -1323,11 +1566,7 @@ class AppSistemaSocial(ctk.CTk):
         self.criar_tabela(parent, colunas, dados)
 
     def construir_indicadores(self, parent, indicadores):
-        """
-        Mostra uma lista de indicadores no estilo 'linha limpa' (título à esquerda,
-        valor em destaque à direita, linha fina embaixo). `indicadores` é uma lista
-        de tuplas (titulo, query_que_retorna_uma_coluna_'total').
-        """
+       
         for titulo, query in indicadores:
             sucesso, dados = self.executar_query(query, fetch=True)
             valor = dados[0]["total"] if sucesso and dados else "—"
@@ -1368,9 +1607,14 @@ class AppSistemaSocial(ctk.CTk):
         self.construir_duas_colunas([
             ("Lista de tarefas", self.construir_todo_list),
             ("Casos em Aberto", lambda p: self.construir_lista_query(
-                p, ["nome_usuario", "tecnico_responsavel", "status"],
-                "SELECT nome_usuario, tecnico_responsavel, status FROM casos "
-                "WHERE status != 'Encerrado' ORDER BY ultima_atualizacao DESC LIMIT 8"
+                p, ["n_caso", "tecnico", "usuarios", "status"],
+                """SELECT c.id AS n_caso, t.nome AS tecnico, GROUP_CONCAT(u.nome SEPARATOR ', ') AS usuarios, c.status
+                   FROM casos c
+                   LEFT JOIN tecnicos t ON t.id = c.id_tecnico
+                   LEFT JOIN caso_acompanhamento ca ON ca.id_caso = c.id
+                   LEFT JOIN usuarios u ON u.id = ca.id_usuario
+                   WHERE c.status != 'Encerrado'
+                   GROUP BY c.id ORDER BY c.id DESC LIMIT 8"""
             )),
         ])
 
